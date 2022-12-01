@@ -1,0 +1,61 @@
+# This file needs to be renamed to Dockerfile
+
+FROM centos
+
+# General Operating System Setup
+RUN cd /etc/yum.repos.d/ \
+&& sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-* \
+&& sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*
+RUN yum -y update
+RUN yum -y install java-1.8.0-openjdk
+RUN yum -y install ncurses
+RUN yum -y install which
+RUN yum -y install zip
+RUN yum -y install bc
+RUN yum -y install passwd
+RUN yum -y install telnet
+RUN yum -y install yum-utils
+RUN yum -y install vim 
+RUN yum -y install -y pam*
+RUN yum -y install libnuma*
+RUN yum -y install pam.i686
+RUN yum -y install libaio*
+
+RUN { echo "password"; echo "password"; } | passwd root
+RUN useradd admin
+RUN { echo "password"; echo "password"; } | passwd admin
+RUN mkdir /home/admin/App
+RUN chown admin:admin /home/admin/App
+
+# IBM JDK Installation
+RUN mkdir /home/admin/App/Utility
+RUN mkdir /home/admin/App/CDT
+RUN chown admin:admin /home/admin/App/Utility
+RUN chown admin:admin /home/admin/App/CDT
+RUN mkdir /Installables
+RUN cd /Installables \
+&& mkdir JDK
+RUN chown -R admin:admin /Installables/
+COPY --chown=admin:admin ./JDK/ibm-java-sdk-8.0-7.11-x86_64-archive.bin /Installables/JDK/ibm-java-sdk-8.0-7.11-x86_64-archive.bin
+RUN chmod 777 -R /Installables/JDK
+USER admin
+RUN cd /Installables/JDK \
+&&  { echo 4; echo 1; echo ""; echo "/home/admin/App/Utility/Java"; echo "Y"; echo ""; echo ""; } | ./ibm-java-sdk-8.0-7.11-x86_64-archive.bin
+
+# Install IBM OpenLiberty for SessionServer
+USER root
+COPY --chown=admin:admin ./Liberty/wlp.zip /home/admin/App/wlp.zip
+RUN unzip /home/admin/App/wlp.zip -d /home/admin/App
+RUN chown -R admin:admin /home/admin/App/wlp
+RUN chmod 777 -R /home/admin/App/wlp
+
+USER admin
+RUN cd /home/admin/App/wlp/bin \
+&& ./server create SessionServer
+COPY --chown=admin:admin ./Liberty/server.xml /home/admin/App/wlp/usr/servers/SessionServer/server.xml
+COPY --chown=admin:admin ./Liberty/jvm.options /home/admin/App/wlp/usr/servers/SessionServer/jvm.options
+COPY --chown=admin:admin ./sessionapp.war /home/admin/App/wlp/usr/servers/SessionServer/dropins/sessionapp.war
+COPY --chown=admin:admin ./SessionServer-startup.sh /home/admin/SessionServer-startup.sh
+RUN chmod 777 home/admin/SessionServer-startup.sh
+
+CMD ["/home/admin/SessionServer-startup.sh"]
